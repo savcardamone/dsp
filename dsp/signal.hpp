@@ -33,6 +33,10 @@ template <typename Datatype = std::complex<float>, int Size = Eigen::Dynamic>
 struct Signal {
 
   /**
+   * @brief The type of the contents of the container.
+   */
+  using value_type = Datatype;
+  /**
    * @brief Numerical precision of the underlying representation of the
    *        Signal samples.
    */
@@ -90,7 +94,7 @@ struct Signal {
    * @param  sample_rate Acquisition sample rate, in units of Samples / Unit
    *                     Time.
    */
-  Signal(std::function<Datatype(size_t)> f, const size_t num_samples,
+  Signal(std::function<value_type(size_t)> f, const size_t num_samples,
          const uint32_t sample_rate)
     : data_(num_samples), sample_rate_(sample_rate) {
 
@@ -105,6 +109,20 @@ struct Signal {
    * @retval size_t The container size.
    */
   size_t size() const { return data_.size(); }
+
+  /**
+   * @brief Resize the Signal to hold a different number of samples.
+   * @param num_samples The number of samples the Signal should now hold.
+   */
+  void resize(const size_t num_samples) {
+
+    if constexpr (Size == Eigen::Dynamic) {
+      data_.conservativeResize(num_samples, 1);
+    } else {
+      throw std::runtime_error("The Signal is of fixed size: can't resize.");
+    }
+
+  }
 
   /**
    * @brief Getter for the sample rate of the Signal in units of Samples / Unit
@@ -142,14 +160,14 @@ struct Signal {
    * @param idx Sample index to return.
    * @retval Value of the sample.
    */
-  Datatype operator[](const size_t &idx) const { return *(begin() + idx); }
+  value_type operator[](const size_t &idx) const { return *(begin() + idx); }
 
   /**
    * @brief Indexing overload for setting samples in the Signal.
    * @param idx Sample index to return.
    * @retval Reference to the sample.
    */
-  Datatype& operator[](const size_t &idx) { return *(begin() + idx); }
+  value_type& operator[](const size_t &idx) { return *(begin() + idx); }
 
   /**
    * @brief Compute the frequency resolution of the Signal in units of inverse
@@ -197,7 +215,7 @@ private:
     os << std::fixed << "<?xml version=\"1.0\"?>" << "\n\n";
 
     // Generic information about the Signal
-    std::string signal_type = TempMeta::is_complex<Datatype>() ? "complex" : "real";
+    std::string signal_type = TempMeta::is_complex<value_type>() ? "complex" : "real";
     os << "<Signal num_samples=\"" << size() << "\" "
        << "sample_rate=\"" << sample_rate() << "\" "
        << "type=\"" << signal_type << "\""
@@ -214,7 +232,7 @@ private:
 
       // Got to handle whether the Signal comprises complex or real samples
       // and print accordingly
-      if constexpr (TempMeta::is_complex<Datatype>()) {
+      if constexpr (TempMeta::is_complex<value_type>()) {
         os << std::real(val) << "," << std::imag(val);
       } else {
         os << val;
@@ -242,7 +260,7 @@ private:
     }
     os << "Supports " << size() << " samples.\n";
 
-    os << "Signal Datatype: " << TempMeta::type_name<Datatype>() << '\n';
+    os << "Signal Datatype: " << TempMeta::type_name<value_type>() << '\n';
     os << "Fourier Datatype: " << TempMeta::type_name<std::complex<working_precision>>() << '\n';
 
   }

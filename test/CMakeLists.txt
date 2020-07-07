@@ -7,9 +7,8 @@ include_directories(
 )
 add_executable(tests
    test_entry.cpp
-   #test_convolve.cpp
    test_signal.cpp
-   #test_fourier.cpp
+   test_convolve.cpp
 )
 target_include_directories(tests PRIVATE
    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
