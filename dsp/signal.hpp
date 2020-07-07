@@ -1,15 +1,21 @@
+/**
+ * @file signal.hpp
+ * @author Salvatore Cardamone (sav.cardamone@gmail.com)
+ * @brief Wrapper class to hold a discretely sampled signal.
+ */
 #ifndef __DSP_SIGNAL_HPP
 #define __DSP_SIGNAL_HPP
 
 // Standard Library Inclusions
 #include <complex>
+#include <ostream>
 #include <algorithm>
 #include <string_view>
 #include <type_traits>
 // External Library Inclusions
 #include <Eigen/Dense>
-#include <TempMeta/utility>
-#include <TempMeta/numerical>
+#include "tempmeta/utility.hpp"
+#include "tempmeta/numerical.hpp"
 // Project Inclusions
 
 
@@ -30,7 +36,7 @@ struct Signal {
    * @brief Numerical precision of the underlying representation of the
    *        Signal samples.
    */
-  using precision = typename TempMeta::numerical_precision<Datatype>::type;
+  using working_precision = typename TempMeta::numerical_precision<Datatype>::type;
   /**
    * @brief Underlying container which stores the signal samples.
    *        1D Eigen matrix so we can do linear algebra with it.
@@ -101,6 +107,13 @@ struct Signal {
   size_t size() const { return data_.size(); }
 
   /**
+   * @brief Getter for the sample rate of the Signal in units of Samples / Unit
+   *        Time.
+   * @return uint32_t Acquisition sample rate, in units of Samples / Unit Time.
+   */
+  uint32_t sample_rate() const { return sample_rate_; }
+
+  /**
    * @brief Return an iterator to the beginning of the signal.
    * @retval begin iterator.
    */
@@ -139,22 +152,31 @@ struct Signal {
   Datatype& operator[](const size_t &idx) { return *(begin() + idx); }
 
   /**
+   * @brief Compute the frequency resolution of the Signal in units of inverse
+   *        Unit Time.
+   * @return working_precision The frequency resolution of the signal.
+   */
+  working_precision resolution() const {
+    return static_cast<working_precision>(sample_rate()) / size();
+  }
+
+  /**
    * @brief Stream overload for printing Signal to an output stream.
    * @param os  The output stream to output to.
    * @param sig The Signal object to output.
    * @return std::ostream& The modified output stream.
    */
-  friend std::ostream& operator<<(std::ostream& os, const Signal& sig) {
+  friend std::ostream& operator<<(std::ostream& os, Signal& sig) {
 
-    if constexpr(Size == Eigen::Dynamic) {
-      os << "Signal Data is dynamically allocated: ";
+    // If the output stream is std::cout, then we print some
+    // condensed information about the signal
+    if (&os == &std::cout) {
+      sig.print_to_stdout(os);
+    // Otherwise it's to file, so we'll print everything we can about the
+    // object in xml format
     } else {
-      os << "Signal Data is statically allocated: ";
+      sig.print_to_xml(os);
     }
-    os << "Supports " << sig.size() << " samples.\n";
-
-    os << "Signal Datatype: " << TempMeta::type_name<Datatype>() << '\n';
-    os << "Fourier Datatype: " << TempMeta::type_name<std::complex<precision>>() << '\n';
 
     return os;
 
@@ -163,6 +185,67 @@ struct Signal {
 private:
   container data_;
   uint32_t sample_rate_;
+
+  /**
+   * @brief Print the object in xml format to an output stream.
+   * @param os The output stream we print to.
+   */
+  void print_to_xml(std::ostream& os) {
+
+    // Set up some precision and numerical widths for the output stream
+    os.precision(8);
+    os << std::fixed << "<?xml version=\"1.0\"?>" << "\n\n";
+
+    // Generic information about the Signal
+    std::string signal_type = TempMeta::is_complex<Datatype>() ? "complex" : "real";
+    os << "<Signal num_samples=\"" << size() << "\" "
+       << "sample_rate=\"" << sample_rate() << "\" "
+       << "type=\"" << signal_type << "\""
+       << ">\n";
+
+    // Print the Signal samples and the associated sample times
+    os << "\t<Samples>\n";
+    for (uint32_t isample=0; isample<size(); ++isample) {
+
+      auto val = (*this)[isample];
+      os << "\t\t<Sample t=\""
+         << static_cast<working_precision>(isample) / sample_rate()
+         << "\"> ";
+
+      // Got to handle whether the Signal comprises complex or real samples
+      // and print accordingly
+      if constexpr (TempMeta::is_complex<Datatype>()) {
+        os << std::real(val) << "," << std::imag(val);
+      } else {
+        os << val;
+      }
+      os << " </Sample>\n";
+
+    }
+    os << "\t</Samples>\n";
+
+    // Finalise the xml
+    os << "</Signal>\n";
+
+  }
+
+  /**
+   * @brief Print the object in condensed format to std::cout.
+   * @param os The output stream we print to.
+   */
+  void print_to_stdout(std::ostream& os) {
+
+    if constexpr(Size == Eigen::Dynamic) {
+      os << "Signal Data is dynamically allocated: ";
+    } else {
+      os << "Signal Data is statically allocated: ";
+    }
+    os << "Supports " << size() << " samples.\n";
+
+    os << "Signal Datatype: " << TempMeta::type_name<Datatype>() << '\n';
+    os << "Fourier Datatype: " << TempMeta::type_name<std::complex<working_precision>>() << '\n';
+
+  }
 
 };
 

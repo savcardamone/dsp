@@ -11,8 +11,9 @@ add_executable(tests
    test_signal.cpp
    #test_fourier.cpp
 )
-target_include_directories(tests
-   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>/include
+target_include_directories(tests PRIVATE
+   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>/tempmeta
 )
 target_link_libraries(tests
    Eigen3::Eigen
