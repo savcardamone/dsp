@@ -10,8 +10,6 @@
 #include <complex>
 #include <ostream>
 #include <algorithm>
-#include <string_view>
-#include <type_traits>
 // External Library Inclusions
 #include <Eigen/Dense>
 #include "tempmeta/utility.hpp"
@@ -46,6 +44,14 @@ struct Signal {
    *        1D Eigen matrix so we can do linear algebra with it.
    */
   using container = typename Eigen::Matrix<Datatype, Size, 1>;
+  /**
+   * @brief Container type which always stores complex-valued data, e.g. Fourier
+   *        coefficients. Note that if this container is to be statically allocated,
+   *        e.g. because we're going to FFT the Signal and the resultant number of
+   *        Fourier coefficients is a power of two, then the underlying Signal should
+   *        be statically allocated and padded to accommodate this.
+   */
+  using complex_container = typename Eigen::Matrix<std::complex<working_precision>, Size, 1>;
   /**
    * @brief Iterator type so we can use the Signal as an iterable container.
    */
@@ -116,6 +122,8 @@ struct Signal {
    */
   void resize(const size_t num_samples) {
 
+    // While the Eigen API allows us to call resize on fixed size containers,
+    // we'll explicitly throw an error
     if constexpr (Size == Eigen::Dynamic) {
       data_.conservativeResize(num_samples, 1);
     } else {
@@ -123,6 +131,15 @@ struct Signal {
     }
 
   }
+
+  /**
+   * @brief Return the samples that form the Signal.
+   * @return container& Reference to the underlying data of the Signal.
+   */
+  container& data() { return data_; }
+
+  complex_container  fourier() const { return fourier_; }
+  complex_container& fourier() { return fourier_; }
 
   /**
    * @brief Getter for the sample rate of the Signal in units of Samples / Unit
@@ -170,12 +187,27 @@ struct Signal {
   value_type& operator[](const size_t &idx) { return *(begin() + idx); }
 
   /**
-   * @brief Compute the frequency resolution of the Signal in units of inverse
-   *        Unit Time.
-   * @return working_precision The frequency resolution of the signal.
+   * @brief Compute the duration of the signal.
+   * @return working_precision Duration of the signal in time.
    */
-  working_precision resolution() const {
-    return static_cast<working_precision>(sample_rate()) / size();
+  working_precision duration() const {
+    return static_cast<working_precision>(size()) / sample_rate();
+  }
+
+  /**
+   * @brief Compute the sampling interval between samples.
+   * @return working_precision The sampling interval of the signal.
+   */
+  working_precision sampling_interval() const {
+    return duration() / size();
+  }
+
+  /**
+   * @brief Compute the Nyquist critical frequency of the signal.
+   * @return working_precision The Nyquist frequency.
+   */
+  working_precision nyquist() const {
+    return 1.0 / (2 * sampling_interval());
   }
 
   /**
@@ -202,6 +234,7 @@ struct Signal {
 
 private:
   container data_;
+  complex_container fourier_;
   uint32_t sample_rate_;
 
   /**
@@ -258,7 +291,12 @@ private:
     } else {
       os << "Signal Data is statically allocated: ";
     }
-    os << "Supports " << size() << " samples.\n";
+    os << "Supports " << size() << " sample(s).\n";
+
+    os << "Signal Duration: " << duration() << " sec(s),   "
+       << "Sample Rate: " << sample_rate() << " sample(s) / sec\n";
+    os << "Signal Sampling Interval: " << sampling_interval() << " sec(s),   "
+       << "Nyquist Critical Frequency: " << nyquist() << " Hz\n";
 
     os << "Signal Datatype: " << TempMeta::type_name<value_type>() << '\n';
     os << "Fourier Datatype: " << TempMeta::type_name<std::complex<working_precision>>() << '\n';

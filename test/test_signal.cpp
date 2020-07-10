@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( Construction )
   );
 
   // Check the Signal can be initialised with a function
-  Dsp::Signal<double> sig_function([](const size_t idx){return static_cast<double>(idx);}, 16, 16);
+  Dsp::Signal<double> sig_function([](const size_t idx){return static_cast<double>(idx);}, 16, 32);
   BOOST_TEST(sig_function.size() == temp_dynamic.size());
   BOOST_CHECK_EQUAL_COLLECTIONS(
     sig_function.begin(), sig_function.end(), temp_dynamic.begin(), temp_dynamic.end()
